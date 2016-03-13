@@ -89,14 +89,12 @@ public class EdwardsAlgo {
 		//expand the cycle
 		//Step 1, remove out-going edges from C and replace with outgoing edges from cycle.
 		for (Edge edge : C.zeroEdges) {
-			if(C.cycleVerts.contains(edge.From)){
-				sTreeEdges.remove(edge);
-				Vertex cycle_vert = edge.oldOrigin;
-				for (Edge ed : cycle_vert.zeroEdges) {//it would have been in zeroEdges list
-					if(ed.To.equals(edge.To)){
-						sTreeEdges.add(ed);
-						break;
-					}
+			sTreeEdges.remove(edge);
+			Vertex cycle_vert = edge.oldOrigin;
+			for (Edge ed : cycle_vert.zeroEdges) {//it would have been in zeroEdges list
+				if(ed.To.equals(edge.To)){
+					sTreeEdges.add(ed);
+					break;
 				}
 			}
 		}

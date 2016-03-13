@@ -8,6 +8,7 @@ public class Edge {
     public int Weight;// weight of the arc
     public boolean auxEdge = false;
     public Edge oldEdge = null;
+    public boolean isInMST = false;
 //    public boolean active = true;
 
     /**

@@ -59,7 +59,7 @@ public class Vertex {
     
     boolean cycleContainsVertex(Vertex v){
     	for (Vertex c : this.cycleVerts) {
-			if(c.equals(v) || c.cycleContainsVertex(v))
+			if(c.equals(v))
 				return true;
 		}
     	return false;

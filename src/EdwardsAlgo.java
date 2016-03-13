@@ -1,6 +1,7 @@
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
@@ -9,8 +10,9 @@ import java.util.Scanner;
 public class EdwardsAlgo {
 
 	public static void main(String[] args) throws FileNotFoundException {
-		Graph g = Graph.readGraph(new Scanner(new File("test/sample.txt")), true);
+		Graph g = Graph.readGraph(new Scanner(new File("test/1-lp2.txt")), true);
 		List<Edge> spanningTreeEdges = findMST(g, g.verts.get(1));
+		Collections.sort(spanningTreeEdges, new EdgeToComparator());
 		System.out.println(spanningTreeEdges);
 	}
 

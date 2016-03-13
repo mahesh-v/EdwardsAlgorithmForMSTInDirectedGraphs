@@ -10,20 +10,23 @@ import java.util.Scanner;
 public class EdwardsAlgo {
 
 	public static void main(String[] args) throws FileNotFoundException {
-		Graph g = Graph.readGraph(new Scanner(new File("test/2-lp2.txt")), true);
+		Graph g = Graph.readGraph(new Scanner(new File("test/lp2-ck.txt")), true);
 		List<Edge> spanningTreeEdges = findMST(g, g.verts.get(1));
 		int sum = 0;
 		for (Edge edge : spanningTreeEdges) {
 			sum+=edge.Weight;
 		}
 		System.out.println(sum);
-//		Collections.sort(spanningTreeEdges, new EdgeToComparator());
+		Collections.sort(spanningTreeEdges, new EdgeToComparator());
 //		System.out.println(spanningTreeEdges);
 	}
 
 	public static List<Edge> findMST(Graph g, Vertex root) {
 		for (Vertex vertex : g) {
-			vertex.zeroEdges.clear();
+			if(vertex.active){
+				vertex.zeroEdges.clear();
+				vertex.parent = null;
+			}
 		}
 		reduceIncommingEdgeWeights(g, root);
 		List<Edge> spanningTreeEdges = new ArrayList<Edge>();
@@ -37,10 +40,12 @@ public class EdwardsAlgo {
 //					continue;
 //			if(v.zeroEdges == null)
 //				continue;
+				if(!e.To.active)
+					continue;
 				spanningTreeEdges.add(e);
 				Vertex u = e.To;
-				u.parent=e.From;
 				if(!u.seen && u.active){
+//					u.parent=v;
 					queue.add(u);
 				}
 			}
@@ -84,12 +89,12 @@ public class EdwardsAlgo {
 		g.verts.add(C);
 		do{//add edges that are not within C.cycleVerts
 			for (Edge e : current.Adj) {
-				if(!C.cycleVerts.contains(e.To)){
+				if(!C.cycleContainsVertex(e.To) && e.To.active){
 					addNewEdge(g, C, e.To, e);
 				}
 			}
 			for (Edge e : current.revAdj) {
-				if(!C.cycleVerts.contains(e.From)){
+				if(!C.cycleContainsVertex(e.From) && e.From.active){
 					addNewEdge(g, e.From, C, e);
 				}
 			}
@@ -100,6 +105,7 @@ public class EdwardsAlgo {
 		//expand the cycle
 		//Step 1, remove out-going edges from C and replace with outgoing edges from cycle.
 		for (Edge edge : C.zeroEdges) {
+			if(sTreeEdges.contains(edge)){
 			sTreeEdges.remove(edge);
 			sTreeEdges.add(edge.oldEdge);
 			edge.To.parent = edge.oldEdge.From;
@@ -111,7 +117,7 @@ public class EdwardsAlgo {
 ////					sTreeEdges.add(ed);
 //					break;
 //				}
-//			}
+			}
 		}
 		//Step 2, remove incoming edge into C and replace with that which was incoming
 		Edge incoming = findEdgeBetweenVertices(C.parent, C);
@@ -130,6 +136,7 @@ public class EdwardsAlgo {
 		current = cycle_vert;
 		do{
 			Edge ed = current.revZeroEdges;
+			current.active = true;
 			if(current != cycle_vert) {
 				current.parent = ed.From;
 			}
@@ -175,9 +182,9 @@ public class EdwardsAlgo {
 				for (Edge e : v.revAdj) {
 					if(e.From.active && (e.Weight - min) == 0){
 						v.revZeroEdges = e;
-						if(!e.From.zeroEdges.contains(e))
-							e.From.zeroEdges.add(e);
-						break;
+						v.parent = e.From;
+						e.From.zeroEdges.add(e);
+//						break;
 					}
 				}
 				if(v.revZeroEdges == null)

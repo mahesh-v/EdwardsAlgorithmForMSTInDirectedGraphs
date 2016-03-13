@@ -56,4 +56,12 @@ public class Vertex {
     public int hashCode(){
     	return this.name;
     }
+    
+    boolean cycleContainsVertex(Vertex v){
+    	for (Vertex c : this.cycleVerts) {
+			if(c.equals(v) || c.cycleContainsVertex(v))
+				return true;
+		}
+    	return false;
+    }
 }

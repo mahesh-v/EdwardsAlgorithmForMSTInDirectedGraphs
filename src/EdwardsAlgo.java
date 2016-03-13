@@ -1,7 +1,9 @@
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
@@ -9,8 +11,8 @@ import java.util.Scanner;
 
 public class EdwardsAlgo {
 
-	public static void main(String[] args) throws FileNotFoundException {
-		Graph g = Graph.readGraph(new Scanner(new File("test/lp2-m.txt")), true);
+	public static void main(String[] args) throws IOException {
+		Graph g = Graph.readGraph(new Scanner(new File("test/lp2-ck.txt")), true);
 		System.out.println("Starting algo");
 		Timer t = new Timer();
 		List<Edge> spanningTreeEdges = findMST(g, g.verts.get(1));
@@ -22,6 +24,12 @@ public class EdwardsAlgo {
 		System.out.println(sum);
 		System.out.println(t);
 		Collections.sort(spanningTreeEdges, new EdgeToComparator());
+		FileWriter writer = new FileWriter("test/output.txt"); 
+		writer.write(String.valueOf(sum)+"\n");
+		for (Edge edge : spanningTreeEdges) {
+			writer.write(edge.toString()+"\n");
+		}
+		writer.close();
 //		System.out.println(spanningTreeEdges);
 	}
 
@@ -58,7 +66,6 @@ public class EdwardsAlgo {
 				x = v;
 				break;
 			}
-//			v.seen = false;//for future use
 		}
 		if(x==null)
 			return spanningTreeEdges;//cycles are expanded after returning
@@ -68,64 +75,51 @@ public class EdwardsAlgo {
 		current.seen = true;
 		Vertex cycleStart = null;
 		do{
-			current = current.revZeroEdges.From;
+			current = current.revZeroEdge.From;
 			if(current.seen){
 				cycleStart = current;
 				break;
 			}
 			current.seen = true;
 		} while(true);
-//		x.seen = false;
-//		while(x!=cycleStart){ //reset all edges up to that cycle to false for later use
-//			x = x.revZeroEdges.From;
-//			x.seen = false;
-//		}
 		Vertex C = new Vertex(++(g.numNodes));
-		do{//add all vertices in cycle to C.cycleVerts
-//			current.seen = false;//unrelated. for future use
-			
-			C.cycleVerts.add(current);
+		do{//mark C as super vertex for all verts in cycle
+			current.superVertex = C;
 			current.active = false;//make it inactive for the future
-			current = current.revZeroEdges.From;
+			current = current.revZeroEdge.From;
 		} while(current != cycleStart);
 		
 		g.verts.add(C);
+		HashMap<Vertex, Edge> to_set = new HashMap<>();
+		HashMap<Vertex, Edge> from_set = new HashMap<>();
 		do{//add edges that are not within C.cycleVerts
 			for (Edge e : current.Adj) {
-				if(!C.cycleVerts.contains(e.To) && e.To.active){
-					boolean modified = false;
-					for (Edge edge : C.Adj) {
-						if(edge.To.equals(e.To)){
-							if(e.Weight < edge.Weight){
-								edge.Weight =e.Weight;
-								edge.oldEdge = e;
-							}
-							modified = true;
-							break;
+				if(e.To.superVertex != C && e.To.active){
+					if(!to_set.containsKey(e.To))
+						to_set.put(e.To, addNewEdge(C, e.To, e));
+					else{
+						Edge edge = to_set.get(e.To);
+						if(e.Weight < edge.Weight){
+							edge.Weight = e.Weight;
+							edge.oldEdge = e;
 						}
 					}
-					if(!modified)
-						addNewEdge(C, e.To, e);
 				}
 			}
 			for (Edge e : current.revAdj) {
-				if(!C.cycleVerts.contains(e.From) && e.From.active){
-					boolean modified = false;
-					for (Edge edge : C.revAdj) {
-						if(edge.From.equals(e.From)){
-							if(e.Weight < edge.Weight){
-								edge.Weight =e.Weight;
-								edge.oldEdge = e;
-							}
-							modified = true;
-							break;
+				if(e.From.superVertex != C && e.From.active){
+					if(!from_set.containsKey(e.From))
+						from_set.put(e.From, addNewEdge(e.From, C, e));
+					else{
+						Edge edge = from_set.get(e.From);
+						if(e.Weight < edge.Weight){
+							edge.Weight = e.Weight;
+							edge.oldEdge = e;
 						}
 					}
-					if(!modified)
-						addNewEdge(e.From, C, e);
 				}
 			}
-			current = current.revZeroEdges.From;
+			current = current.revZeroEdge.From;
 		}while(current != cycleStart);
 		//call recursively with new graph
 		List<Edge> sTreeEdges = findMST(g, root);
@@ -134,18 +128,10 @@ public class EdwardsAlgo {
 		for (Edge edge : C.zeroEdges) {
 			if(edge.isInMST){
 				edge.isInMST = false;
-			sTreeEdges.remove(edge);
-			edge.oldEdge.isInMST = true;
-			sTreeEdges.add(edge.oldEdge);
-			edge.To.parent = edge.oldEdge.From;
-//			Vertex cycle_vert = edge.oldEdge.From;
-//			for (Edge ed : cycle_vert.zeroEdges) {//it would have been in zeroEdges list
-////
-//				if(ed.To.equals(edge.To)){
-//					ed.To.parent = cycle_vert;
-////					sTreeEdges.add(ed);
-//					break;
-//				}
+				sTreeEdges.remove(edge);
+				edge.oldEdge.isInMST = true;
+				sTreeEdges.add(edge.oldEdge);
+				edge.To.parent = edge.oldEdge.From;
 			}
 		}
 		//Step 2, remove incoming edge into C and replace with that which was incoming
@@ -160,7 +146,7 @@ public class EdwardsAlgo {
 		//Step 3, add all the edges that were shrunk back to MST
 		current = cycle_vert;
 		do{
-			Edge ed = current.revZeroEdges;
+			Edge ed = current.revZeroEdge;
 			current.active = true;
 			if(current != cycle_vert) {
 				current.parent = ed.From;
@@ -176,18 +162,19 @@ public class EdwardsAlgo {
 		return sTreeEdges;
 	}
 
-	private static void addNewEdge(Vertex from, Vertex to, Edge ed) {
+	private static Edge addNewEdge(Vertex from, Vertex to, Edge ed) {
 		Edge e = new Edge(from, to, ed.Weight);
 		e.auxEdge = true;
 		e.oldEdge = ed;
 		from.Adj.add(e);
 		to.revAdj.add(e);
+		return e;
 	}
 
 	private static void reduceIncommingEdgeWeights(Graph g, Vertex root) {
 		for (Vertex v : g) {
 			if(v!=root && v.active){
-				v.revZeroEdges = null;
+				v.revZeroEdge = null;
 				int min = Integer.MAX_VALUE;
 				for (Edge e : v.revAdj) {
 					if(e.From.active && e.Weight < min){
@@ -196,12 +183,12 @@ public class EdwardsAlgo {
 				}
 				for (Edge e : v.revAdj) {
 					if(e.From.active && (e.Weight - min) == 0){
-						v.revZeroEdges = e;
+						v.revZeroEdge = e;
 						e.From.zeroEdges.add(e);
 						break;
 					}
 				}
-				if(v.revZeroEdges == null)
+				if(v.revZeroEdge == null)
 					System.out.println("This should be an error");
 			}
 		}

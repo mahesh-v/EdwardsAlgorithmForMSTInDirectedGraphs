@@ -13,9 +13,9 @@ public class Vertex {
     public int distance; // distance to the vertex from the source vertex
     public List<Edge> Adj, revAdj; // adjacency list; use LinkedList or ArrayList
     public List<Edge> zeroEdges;
-    public Edge revZeroEdges;
+    public Edge revZeroEdge;
     boolean active;
-    Set<Vertex> cycleVerts; // to store the set of vertices contained within it, if any
+    Vertex superVertex;//if this vertex is contained inside a super vertex
 
     /**
      * Constructor for the vertex
@@ -31,7 +31,6 @@ public class Vertex {
 	revAdj = new ArrayList<Edge>();   /* only for directed graphs */
 	zeroEdges = new ArrayList<Edge>();
 	active = true;
-	cycleVerts = new HashSet<Vertex>();
     }
 
     /**
@@ -55,13 +54,5 @@ public class Vertex {
     @Override
     public int hashCode(){
     	return this.name;
-    }
-    
-    boolean cycleContainsVertex(Vertex v){
-    	for (Vertex c : this.cycleVerts) {
-			if(c.equals(v))
-				return true;
-		}
-    	return false;
     }
 }

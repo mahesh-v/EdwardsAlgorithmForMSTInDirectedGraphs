@@ -7,8 +7,7 @@ public class Edge {
     public Vertex To; // tail vertex
     public int Weight;// weight of the arc
     public boolean auxEdge = false;
-    public Vertex oldOrigin;
-    public Vertex oldTo;
+    public Edge oldEdge = null;
 //    public boolean active = true;
 
     /**

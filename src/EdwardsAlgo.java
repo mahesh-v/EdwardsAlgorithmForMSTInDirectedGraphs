@@ -10,13 +10,21 @@ import java.util.Scanner;
 public class EdwardsAlgo {
 
 	public static void main(String[] args) throws FileNotFoundException {
-		Graph g = Graph.readGraph(new Scanner(new File("test/00-lp2.txt")), true);
+		Graph g = Graph.readGraph(new Scanner(new File("test/2-lp2.txt")), true);
 		List<Edge> spanningTreeEdges = findMST(g, g.verts.get(1));
-		Collections.sort(spanningTreeEdges, new EdgeToComparator());
-		System.out.println(spanningTreeEdges);
+		int sum = 0;
+		for (Edge edge : spanningTreeEdges) {
+			sum+=edge.Weight;
+		}
+		System.out.println(sum);
+//		Collections.sort(spanningTreeEdges, new EdgeToComparator());
+//		System.out.println(spanningTreeEdges);
 	}
 
 	public static List<Edge> findMST(Graph g, Vertex root) {
+		for (Vertex vertex : g) {
+			vertex.zeroEdges.clear();
+		}
 		reduceIncommingEdgeWeights(g, root);
 		List<Edge> spanningTreeEdges = new ArrayList<Edge>();
 		LinkedList<Vertex> queue = new LinkedList<Vertex>();
@@ -93,26 +101,30 @@ public class EdwardsAlgo {
 		//Step 1, remove out-going edges from C and replace with outgoing edges from cycle.
 		for (Edge edge : C.zeroEdges) {
 			sTreeEdges.remove(edge);
-			Vertex cycle_vert = edge.oldOrigin;
-			for (Edge ed : cycle_vert.zeroEdges) {//it would have been in zeroEdges list
-
-				if(ed.To.equals(edge.To)){
-					ed.To.parent = cycle_vert;
-					sTreeEdges.add(ed);
-					break;
-				}
-			}
+			sTreeEdges.add(edge.oldEdge);
+			edge.To.parent = edge.oldEdge.From;
+//			Vertex cycle_vert = edge.oldEdge.From;
+//			for (Edge ed : cycle_vert.zeroEdges) {//it would have been in zeroEdges list
+////
+//				if(ed.To.equals(edge.To)){
+//					ed.To.parent = cycle_vert;
+////					sTreeEdges.add(ed);
+//					break;
+//				}
+//			}
 		}
 		//Step 2, remove incoming edge into C and replace with that which was incoming
-		sTreeEdges.remove(findEdgeBetweenVertices(C.parent, C));
-		Vertex cycle_vert = C.revZeroEdges.oldTo;
+		Edge incoming = findEdgeBetweenVertices(C.parent, C);
+		sTreeEdges.remove(incoming);
+		sTreeEdges.add(incoming.oldEdge);
+		Vertex cycle_vert = incoming.oldEdge.To;
 		cycle_vert.parent = C.parent;
-		for (Edge ed : cycle_vert.revAdj) {
-			if(ed.From.equals(C.parent)){
-				sTreeEdges.add(ed);
-				break;
-			}
-		}
+//		for (Edge ed : cycle_vert.revAdj) {
+//			if(ed.From.equals(C.parent)){
+//				sTreeEdges.add(ed);
+//				break;
+//			}
+//		}
 		
 		//Step 3, add all the edges that were shrunk back to MST
 		current = cycle_vert;
@@ -126,59 +138,9 @@ public class EdwardsAlgo {
 			current = ed.From;
 		}while (current!=cycle_vert);
 		
-//		do{//expand cycle, deleting new edges
-//			current.active = true;
-//			Iterator<Edge> iter = current.Adj.iterator();
-//			while (iter.hasNext()) {
-//				Edge e = iter.next();
-//				if(e.auxEdge){
-//					iter.remove();
-//					if(sTreeEdges.contains(e))
-//						sTreeEdges.remove(e);
-//				}
-//				else//other 0 wt edges within cycle are added to MST
-//					sTreeEdges.add(e);
-//			}
-//			iter = current.revAdj.iterator();
-//			while (iter.hasNext()) {
-//				Edge e = iter.next();
-//				if(e.auxEdge){
-//					iter.remove();
-//					if(sTreeEdges.contains(e))
-//						sTreeEdges.remove(e);
-//				}
-//				else//other 0 wt edges within cycle are added to MST
-//					sTreeEdges.add(e);
-//			}
-//			current = current.revZeroEdges.From;
-//		} while(current != cycleStart);
-		g.verts.remove(C);
-		g.numNodes--;
-//		Iterator<Edge> iter = sTreeEdges.iterator();
-//		while (iter.hasNext()) {
-//			Edge edge = iter.next();
-//			if(edge.auxEdge){//need to remove this edge, and expand C
-//				iter.remove();
-//				if(edge.To.cycleVerts.size() > 0){
-//					for (Vertex v : edge.To.cycleVerts) {
-//						v.active = true;
-//						Edge zeroEdge = v.revZeroEdges.get(0);//we only ever used the first zero edge. Can optimize by making this a single edge
-//						zeroEdge.active = true;
-//						sTreeEdges.add(zeroEdge);
-//					}
-//					g.verts.remove(edge.To);
-//				}
-//				if(edge.From.cycleVerts.size() > 0){
-//					for (Vertex v : edge.From.cycleVerts) {
-//						v.active = true;
-//						Edge zeroEdge = v.zeroEdges.get(0);//we only ever used the first zero edge. Can optimize by making this a single edge
-//						zeroEdge.active = true;
-//						sTreeEdges.add(zeroEdge);
-//					}
-//					g.verts.remove(edge.From);
-//				}
-//			}
-//		}
+//		g.verts.remove(C);
+//		g.numNodes--;
+		C.active=false;
 		return sTreeEdges;
 	}
 
@@ -187,8 +149,7 @@ public class EdwardsAlgo {
 			if(edge.auxEdge && edge.From.equals(from) && edge.To.equals(to)){
 				if(edge.Weight > ed.Weight){
 					edge.Weight = ed.Weight;//simply replace the weight with the lesser weight
-					edge.oldOrigin = ed.From;
-					edge.oldTo = ed.To;
+					edge.oldEdge = ed;
 				}
 				return;
 			}
@@ -196,8 +157,7 @@ public class EdwardsAlgo {
 		Edge e = new Edge(from, to, ed.Weight);
 //		ed.active = false;
 		e.auxEdge = true;
-		e.oldOrigin = ed.From;
-		e.oldTo = ed.To;
+		e.oldEdge = ed;
 		from.Adj.add(e);
 		to.revAdj.add(e);
 	}

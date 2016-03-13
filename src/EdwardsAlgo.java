@@ -10,7 +10,7 @@ import java.util.Scanner;
 public class EdwardsAlgo {
 
 	public static void main(String[] args) throws FileNotFoundException {
-		Graph g = Graph.readGraph(new Scanner(new File("test/1-lp2.txt")), true);
+		Graph g = Graph.readGraph(new Scanner(new File("test/00-lp2.txt")), true);
 		List<Edge> spanningTreeEdges = findMST(g, g.verts.get(1));
 		Collections.sort(spanningTreeEdges, new EdgeToComparator());
 		System.out.println(spanningTreeEdges);
@@ -31,6 +31,7 @@ public class EdwardsAlgo {
 //				continue;
 				spanningTreeEdges.add(e);
 				Vertex u = e.To;
+				u.parent=e.From;
 				if(!u.seen && u.active){
 					queue.add(u);
 				}
@@ -94,17 +95,20 @@ public class EdwardsAlgo {
 			sTreeEdges.remove(edge);
 			Vertex cycle_vert = edge.oldOrigin;
 			for (Edge ed : cycle_vert.zeroEdges) {//it would have been in zeroEdges list
+
 				if(ed.To.equals(edge.To)){
+					ed.To.parent = cycle_vert;
 					sTreeEdges.add(ed);
 					break;
 				}
 			}
 		}
 		//Step 2, remove incoming edge into C and replace with that which was incoming
-		sTreeEdges.remove(C.revZeroEdges);
+		sTreeEdges.remove(findEdgeBetweenVertices(C.parent, C));
 		Vertex cycle_vert = C.revZeroEdges.oldTo;
+		cycle_vert.parent = C.parent;
 		for (Edge ed : cycle_vert.revAdj) {
-			if(ed.From.equals(C.revZeroEdges.From)){
+			if(ed.From.equals(C.parent)){
 				sTreeEdges.add(ed);
 				break;
 			}
@@ -114,6 +118,9 @@ public class EdwardsAlgo {
 		current = cycle_vert;
 		do{
 			Edge ed = current.revZeroEdges;
+			if(current != cycle_vert) {
+				current.parent = ed.From;
+			}
 			if(!ed.To.equals(cycle_vert)) //do not complete the cycle only in this case
 				sTreeEdges.add(ed);
 			current = ed.From;
@@ -217,6 +224,16 @@ public class EdwardsAlgo {
 					System.out.println("This should be an error");
 			}
 		}
+	}
+
+	private static Edge findEdgeBetweenVertices(Vertex from, Vertex To) {
+		for(Edge e : from.Adj) {
+			if(e.To.equals(To)) {
+				return e;
+			}
+		}
+
+		return null;
 	}
 
 }

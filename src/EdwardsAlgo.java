@@ -1,48 +1,52 @@
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
 
 
 public class EdwardsAlgo {
+	private static long mst_wt;
 
 	public static void main(String[] args) throws IOException {
-		Graph g = Graph.readGraph(new Scanner(new File("test/lp2-ck.txt")), true);
-		System.out.println("Starting algo");
+		Graph g = Graph.readGraph(new Scanner(new File("test/1-lp2.txt")), true);
 		Timer t = new Timer();
 		List<Edge> spanningTreeEdges = findMST(g, g.verts.get(1));
 		t.end();
-		long sum = 0;
-		for (Edge edge : spanningTreeEdges) {
-			sum+=edge.Weight;
+		System.out.println(mst_wt);
+		Collections.sort(spanningTreeEdges, new Comparator<Edge>() {
+			@Override
+			public int compare(Edge e1, Edge e2) {
+				return e1.To.name - e2.To.name;
+			}
+		});
+		if(spanningTreeEdges.size() < 50){
+			for (Edge edge : spanningTreeEdges) {
+				System.out.println(edge);
+			}
 		}
-		System.out.println(sum);
 		System.out.println(t);
-		Collections.sort(spanningTreeEdges, new EdgeToComparator());
-		FileWriter writer = new FileWriter("test/output.txt"); 
-		writer.write(String.valueOf(sum)+"\n");
-		for (Edge edge : spanningTreeEdges) {
-			writer.write(edge.toString()+"\n");
-		}
-		writer.close();
-//		System.out.println(spanningTreeEdges);
 	}
 
 	public static List<Edge> findMST(Graph g, Vertex root) {
+		//initialize
+		mst_wt = 0;
 		for (Vertex vertex : g) {
 			if(vertex.active){
 				vertex.zeroEdges.clear();
 				vertex.parent = null;
+				vertex.parentEdge = null;
 				vertex.seen =  false;
+				vertex.fromC = null;
+				vertex.toC = null;
 			}
 		}
-		reduceIncommingEdgeWeights(g, root);
+		populateZeroWeightEdges(g, root);
 		List<Edge> spanningTreeEdges = new ArrayList<Edge>();
+		//BFS
 		LinkedList<Vertex> queue = new LinkedList<Vertex>();
 		queue.add(root);
 		while(!queue.isEmpty()){
@@ -52,9 +56,11 @@ public class EdwardsAlgo {
 				if(!e.To.active)
 					continue;
 				e.isInMST = true;
+				mst_wt+=e.Weight;
 				spanningTreeEdges.add(e);
 				Vertex u = e.To;
 				if(!u.seen && u.active){
+					u.parentEdge = e;
 					u.parent=v;
 					queue.add(u);
 				}
@@ -68,9 +74,9 @@ public class EdwardsAlgo {
 			}
 		}
 		if(x==null)
-			return spanningTreeEdges;//cycles are expanded after returning
+			return spanningTreeEdges;//all active vertices are reachable
 		
-		//now we need to go backward from x to find the zero weight cycle
+		//Traverse backward from x to find the zero weight cycle
 		Vertex current = x;
 		current.seen = true;
 		Vertex cycleStart = null;
@@ -90,32 +96,24 @@ public class EdwardsAlgo {
 		} while(current != cycleStart);
 		
 		g.verts.add(C);
-		HashMap<Vertex, Edge> to_set = new HashMap<>();
-		HashMap<Vertex, Edge> from_set = new HashMap<>();
-		do{//add edges that are not within C.cycleVerts
+		do{//for all vertices in cycle, add edges that are not within itself
 			for (Edge e : current.Adj) {
 				if(e.To.superVertex != C && e.To.active){
-					if(!to_set.containsKey(e.To))
-						to_set.put(e.To, addNewEdge(C, e.To, e));
-					else{
-						Edge edge = to_set.get(e.To);
-						if(e.Weight < edge.Weight){
-							edge.Weight = e.Weight;
-							edge.oldEdge = e;
-						}
+					if(e.To.fromC == null)
+						e.To.fromC = addNewEdge(C, e.To, e);
+					else if(e.To.fromC.Weight > e.Weight){
+						e.To.fromC.Weight = e.Weight;
+						e.To.fromC.oldEdge = e;
 					}
 				}
 			}
 			for (Edge e : current.revAdj) {
 				if(e.From.superVertex != C && e.From.active){
-					if(!from_set.containsKey(e.From))
-						from_set.put(e.From, addNewEdge(e.From, C, e));
-					else{
-						Edge edge = from_set.get(e.From);
-						if(e.Weight < edge.Weight){
-							edge.Weight = e.Weight;
-							edge.oldEdge = e;
-						}
+					if(e.From.toC == null)
+						e.From.toC = addNewEdge(e.From, C, e);
+					else if(e.From.toC.Weight > e.Weight){
+						e.From.toC.Weight = e.Weight;
+						e.From.toC.oldEdge = e;
 					}
 				}
 			}
@@ -123,41 +121,51 @@ public class EdwardsAlgo {
 		}while(current != cycleStart);
 		//call recursively with new graph
 		List<Edge> sTreeEdges = findMST(g, root);
-		//expand the cycle
+		
+		//expand the cycle in 3 steps:
 		//Step 1, remove out-going edges from C and replace with outgoing edges from cycle.
 		for (Edge edge : C.zeroEdges) {
 			if(edge.isInMST){
 				edge.isInMST = false;
+				mst_wt-=edge.Weight;
 				sTreeEdges.remove(edge);
+				//replace with old edge
 				edge.oldEdge.isInMST = true;
+				mst_wt+=edge.oldEdge.Weight;
 				sTreeEdges.add(edge.oldEdge);
+				edge.To.parentEdge = edge.oldEdge;
 				edge.To.parent = edge.oldEdge.From;
 			}
 		}
 		//Step 2, remove incoming edge into C and replace with that which was incoming
-		Edge incoming = findEdgeBetweenVertices(C.parent, C);
+		Edge incoming = C.parentEdge;//findEdgeBetweenVertices(C.parent, C);
 		incoming.isInMST = false;
+		mst_wt-=incoming.Weight;
 		sTreeEdges.remove(incoming);
+		//replace with old edge
 		incoming.oldEdge.isInMST = true;
+		mst_wt+=incoming.oldEdge.Weight;
 		sTreeEdges.add(incoming.oldEdge);
-		Vertex cycle_vert = incoming.oldEdge.To;
-		cycle_vert.parent = C.parent;
+		Vertex cycle_start = incoming.oldEdge.To;
+		cycle_start.parentEdge = incoming.oldEdge;
+		cycle_start.parent = C.parent;
 		
 		//Step 3, add all the edges that were shrunk back to MST
-		current = cycle_vert;
+		current = cycle_start;
 		do{
 			Edge ed = current.revZeroEdge;
 			current.active = true;
-			if(current != cycle_vert) {
-				current.parent = ed.From;
-			}
-			if(!ed.To.equals(cycle_vert)){ //do not complete the cycle only in this case
+			if(ed.To != cycle_start){ //do not complete the cycle only in this case
 				ed.isInMST = true;
+				mst_wt+=ed.Weight;
+				ed.To.parentEdge = ed;
+				ed.To.parent = ed.From;
 				sTreeEdges.add(ed);
 			}
 			current = ed.From;
-		}while (current!=cycle_vert);
+		}while (current!=cycle_start);
 		
+		//return MST with cycle expanded
 		C.active=false;
 		return sTreeEdges;
 	}
@@ -171,9 +179,9 @@ public class EdwardsAlgo {
 		return e;
 	}
 
-	private static void reduceIncommingEdgeWeights(Graph g, Vertex root) {
+	private static void populateZeroWeightEdges(Graph g, Vertex root) {
 		for (Vertex v : g) {
-			if(v!=root && v.active){
+			if(v.active && v!=root){
 				v.revZeroEdge = null;
 				int min = Integer.MAX_VALUE;
 				for (Edge e : v.revAdj) {
@@ -192,16 +200,6 @@ public class EdwardsAlgo {
 					System.out.println("This should be an error");
 			}
 		}
-	}
-
-	private static Edge findEdgeBetweenVertices(Vertex from, Vertex To) {
-		for(Edge e : from.Adj) {
-			if(e.To.equals(To)) {
-				return e;
-			}
-		}
-
-		return null;
 	}
 
 }

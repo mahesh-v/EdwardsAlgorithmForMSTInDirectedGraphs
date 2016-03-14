@@ -14,8 +14,11 @@ public class Vertex {
     public List<Edge> Adj, revAdj; // adjacency list; use LinkedList or ArrayList
     public List<Edge> zeroEdges;
     public Edge revZeroEdge;
-    boolean active;
+    boolean active; //soft delete
     Vertex superVertex;//if this vertex is contained inside a super vertex
+    Edge toC; //used instead of hashmap to store the edge that goes to condensed cycle C
+    Edge fromC; //used instead of hashmap to store the edge that goes from condensed cycle C to this
+    Edge parentEdge;//used to store the edge from parent to this in MST
 
     /**
      * Constructor for the vertex

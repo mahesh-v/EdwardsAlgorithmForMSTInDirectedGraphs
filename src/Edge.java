@@ -6,7 +6,6 @@ public class Edge {
     public Vertex From; // head vertex
     public Vertex To; // tail vertex
     public int Weight;// weight of the arc
-    public boolean auxEdge = false;
     public Edge oldEdge = null;
     public boolean isInMST = false;
 //    public boolean active = true;

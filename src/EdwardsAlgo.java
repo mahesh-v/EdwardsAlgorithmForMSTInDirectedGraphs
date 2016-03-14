@@ -8,11 +8,18 @@ import java.util.List;
 import java.util.Scanner;
 
 
+/**
+ * Long Project 2
+ * Edward's Algorithm for finding the MST and calculating its weight in a directed graph
+ * 
+ * @author Darshan and Mahesh
+ *
+ */
 public class EdwardsAlgo {
 	private static long mst_wt;
 
 	public static void main(String[] args) throws IOException {
-		Graph g = Graph.readGraph(new Scanner(new File("test/1-lp2.txt")), true);
+		Graph g = Graph.readGraph(new Scanner(new File("test/lp2-m.txt")), true);
 		Timer t = new Timer();
 		List<Edge> spanningTreeEdges = findMST(g, g.verts.get(1));
 		t.end();
@@ -31,6 +38,13 @@ public class EdwardsAlgo {
 		System.out.println(t);
 	}
 
+	/**
+	 * Returns a list of Edges that form the minimum spanning tree
+	 * 
+	 * @param g Input graph
+	 * @param root Root of the MST
+	 * @return List<Edge> that represents the MST
+	 */
 	public static List<Edge> findMST(Graph g, Vertex root) {
 		//initialize
 		mst_wt = 0;
@@ -66,7 +80,7 @@ public class EdwardsAlgo {
 				}
 			}
 		}
-		Vertex x = null;
+		Vertex x = null;//find unseen vertex
 		for (Vertex v : g) {
 			if(!v.seen && v.active){
 				x = v;
@@ -97,21 +111,23 @@ public class EdwardsAlgo {
 		
 		g.verts.add(C);
 		do{//for all vertices in cycle, add edges that are not within itself
+			//from current to vertices outside C
 			for (Edge e : current.Adj) {
 				if(e.To.superVertex != C && e.To.active){
-					if(e.To.fromC == null)
+					if(e.To.fromC == null)//no edge from C to e.To
 						e.To.fromC = addNewEdge(C, e.To, e);
-					else if(e.To.fromC.Weight > e.Weight){
+					else if(e.To.fromC.Weight > e.Weight){ //edge exists
 						e.To.fromC.Weight = e.Weight;
 						e.To.fromC.oldEdge = e;
 					}
 				}
 			}
+			//from vertices outside C to current
 			for (Edge e : current.revAdj) {
 				if(e.From.superVertex != C && e.From.active){
-					if(e.From.toC == null)
+					if(e.From.toC == null)//no edge from e.From to C
 						e.From.toC = addNewEdge(e.From, C, e);
-					else if(e.From.toC.Weight > e.Weight){
+					else if(e.From.toC.Weight > e.Weight){ //edge exists
 						e.From.toC.Weight = e.Weight;
 						e.From.toC.oldEdge = e;
 					}
@@ -124,17 +140,17 @@ public class EdwardsAlgo {
 		
 		//expand the cycle in 3 steps:
 		//Step 1, remove out-going edges from C and replace with outgoing edges from cycle.
-		for (Edge edge : C.zeroEdges) {
-			if(edge.isInMST){
-				edge.isInMST = false;
-				mst_wt-=edge.Weight;
-				sTreeEdges.remove(edge);
+		for (Edge zeroEdge : C.zeroEdges) {
+			if(zeroEdge.isInMST){
+				zeroEdge.isInMST = false;
+				mst_wt-=zeroEdge.Weight;
+				sTreeEdges.remove(zeroEdge);
 				//replace with old edge
-				edge.oldEdge.isInMST = true;
-				mst_wt+=edge.oldEdge.Weight;
-				sTreeEdges.add(edge.oldEdge);
-				edge.To.parentEdge = edge.oldEdge;
-				edge.To.parent = edge.oldEdge.From;
+				zeroEdge.oldEdge.isInMST = true;
+				mst_wt+=zeroEdge.oldEdge.Weight;
+				sTreeEdges.add(zeroEdge.oldEdge);
+				zeroEdge.To.parentEdge = zeroEdge.oldEdge;
+				zeroEdge.To.parent = zeroEdge.oldEdge.From;
 			}
 		}
 		//Step 2, remove incoming edge into C and replace with that which was incoming
@@ -152,17 +168,17 @@ public class EdwardsAlgo {
 		
 		//Step 3, add all the edges that were shrunk back to MST
 		current = cycle_start;
-		do{
-			Edge ed = current.revZeroEdge;
+		do{ // back track through reverse zero edges in cycle and add all but 1 to MST
+			Edge edge = current.revZeroEdge;
 			current.active = true;
-			if(ed.To != cycle_start){ //do not complete the cycle only in this case
-				ed.isInMST = true;
-				mst_wt+=ed.Weight;
-				ed.To.parentEdge = ed;
-				ed.To.parent = ed.From;
-				sTreeEdges.add(ed);
+			if(edge.To != cycle_start){ //do not add edge only in this case
+				edge.isInMST = true;
+				mst_wt+=edge.Weight;
+				edge.To.parentEdge = edge;
+				edge.To.parent = edge.From;
+				sTreeEdges.add(edge);
 			}
-			current = ed.From;
+			current = edge.From;
 		}while (current!=cycle_start);
 		
 		//return MST with cycle expanded
@@ -170,10 +186,9 @@ public class EdwardsAlgo {
 		return sTreeEdges;
 	}
 
-	private static Edge addNewEdge(Vertex from, Vertex to, Edge ed) {
-		Edge e = new Edge(from, to, ed.Weight);
-		e.auxEdge = true;
-		e.oldEdge = ed;
+	private static Edge addNewEdge(Vertex from, Vertex to, Edge oldEdge) {
+		Edge e = new Edge(from, to, oldEdge.Weight);
+		e.oldEdge = oldEdge;
 		from.Adj.add(e);
 		to.revAdj.add(e);
 		return e;
